@@ -11,7 +11,7 @@ ROOT/
 └── 모바일웹서비스 프로젝트_공통평가 01_수행 결과 보고서.docx
 ```
 
-보고서는 현재 진행 상황을 포함하며, 클라우드 동작 검증 후 최종 캡처를 반영합니다.
+보고서에는 1~13번 수행 결과를 반영했습니다. 14번은 별도로 진행합니다.
 가상환경, 빌드 산출물, 개인 계정이 들어 있는 DB, 업로드 사진, HTTP 요청 기록,
 로컬 비밀키와 Word 임시 잠금 파일은 Git에 포함하지 않습니다.
 이미지 필드의 기본 파일 `media/images/default_error.png`는 실행에 필요한 자산으로 포함합니다.
@@ -69,14 +69,14 @@ Web 탭에서 **Manual configuration → Python 3.13**으로 웹앱을 생성합
 
 Web 탭에 연결된 WSGI 설정 파일에 `PhotoBlogServer/deploy/pythonanywhere_wsgi.py`의 내용을 적용하고 Reload합니다.
 이 WSGI 설정은 공개 서버에서 `DEBUG=False`를 적용합니다.
-배포 목표 주소는 `https://garamkang.pythonanywhere.com/`이며, 실제 배포 완료 여부는 별도로 확인해야 합니다.
+배포 주소는 `https://garamkang.pythonanywhere.com/`입니다.
 
 ## Android 클라이언트
 
 Android Studio에서 `ROOT/PhotoViewer`를 엽니다. Java와 XML Views를 사용합니다.
-현재 `MainActivity.java`의 `site_url`은 로컬 서버 주소입니다.
+앱 상단의 스위치에서 클라우드 서버와 로컬 서버를 선택합니다. 앱을 처음 열면 클라우드 서버가 선택됩니다.
 실제 휴대폰에서 USB로 로컬 서버에 연결할 때는 `adb reverse tcp:8000 tcp:8000`을 사용합니다.
-클라우드 검증 시 `site_url`을 `https://garamkang.pythonanywhere.com`으로 변경하고 다시 빌드합니다.
+클라우드 검증에는 `https://garamkang.pythonanywhere.com`을 사용합니다.
 
 - 동기화: `GET /api_root/Post/`로 게시물 목록과 이미지를 받아 표시합니다.
 - 새로운 이미지 게시: 제목, 내용, 이미지와 서버 계정을 입력하는 UI를 제공합니다.

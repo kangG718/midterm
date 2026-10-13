@@ -16,6 +16,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -36,11 +37,14 @@ import java.util.List;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
-    String site_url = "http://127.0.0.1:8000";
+    private static final String LOCAL_URL = "http://127.0.0.1:8000";
+    private static final String CLOUD_URL = "https://garamkang.pythonanywhere.com";
+    String site_url = CLOUD_URL;
     TextView textView;
     CloadImage taskDownload;
     PutPost taskUpload;
     private Button loadButton;
+    private SwitchCompat serverSwitch;
     private AlertDialog postDialog;
     private EditText titleInput, textInput, usernameInput, passwordInput;
     private ImageView imagePreview;
@@ -63,6 +67,17 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         textView = findViewById(R.id.textView);
         loadButton = findViewById(R.id.btn_load);
+        serverSwitch = findViewById(R.id.server_switch);
+        serverSwitch.setOnCheckedChangeListener((button, cloud) -> {
+            if (taskDownload != null && taskDownload.getStatus() == AsyncTask.Status.RUNNING) {
+                taskDownload.cancel(true);
+                loadButton.setEnabled(true);
+            }
+            site_url = cloud ? CLOUD_URL : LOCAL_URL;
+            serverSwitch.setText(cloud ? "클라우드 서버" : "로컬 서버 (USB 연결)");
+            ((RecyclerView) findViewById(R.id.recyclerView)).setAdapter(null);
+            textView.setText("동기화 버튼을 눌러 주세요.");
+        });
     }
 
     public void onClickDownload(View v) {
@@ -206,6 +221,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPreExecute() {
             sendButton.setEnabled(false);
+            serverSwitch.setEnabled(false);
             statusText.setText("게시 중...");
             postDialog.setCancelable(false);
             postDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(false);
@@ -249,6 +265,7 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(Void unused) {
             statusText.setText(result);
             sendButton.setEnabled(true);
+            serverSwitch.setEnabled(true);
             postDialog.setCancelable(true);
             postDialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(true);
             if (uploaded) {

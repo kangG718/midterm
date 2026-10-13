@@ -5,6 +5,13 @@
     android:orientation="vertical"
     android:padding="12dp">
 
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/server_switch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:checked="true"
+        android:text="클라우드 서버" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
