@@ -45,8 +45,8 @@ python manage.py runserver
 실습 3과 같이 GitHub 코드를 Bash 콘솔에서 가져와 배포합니다.
 
 ```bash
-git clone https://github.com/kangG718/photoblog-assessment.git
-cd photoblog-assessment/ROOT/PhotoBlogServer
+git clone https://github.com/kangG718/midterm.git
+cd midterm/ROOT/PhotoBlogServer
 python3.13 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -70,6 +70,7 @@ Web 탭에서 **Manual configuration → Python 3.13**으로 웹앱을 생성합
 Web 탭에 연결된 WSGI 설정 파일에 `PhotoBlogServer/deploy/pythonanywhere_wsgi.py`의 내용을 적용하고 Reload합니다.
 이 WSGI 설정은 공개 서버에서 `DEBUG=False`를 적용합니다.
 배포 주소는 `https://garamkang.pythonanywhere.com/`입니다.
+기존 PythonAnywhere 배포는 저장소 이름을 바꾸기 전에 복제했으므로 서버 폴더 경로에 `photoblog-assessment`가 남아 있습니다.
 
 ## Android 클라이언트
 
