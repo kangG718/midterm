@@ -1,16 +1,20 @@
 package com.example.photoviewer;
 
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.EditorInfo;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.RadioGroup;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -23,6 +27,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -51,6 +56,14 @@ public class MainActivity extends AppCompatActivity {
     private TextView statusText;
     private Button sendButton;
     private Uri imageUri;
+    private final List<PostItem> allPosts = new ArrayList<>();
+    private EditText searchInput;
+    private TextView searchResult;
+    private Button searchClear;
+    private RecyclerView postList;
+    private boolean postsLoaded;
+    private boolean newestFirst = true;
+
 
     private final ActivityResultLauncher<String> imagePicker =
             registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
@@ -67,6 +80,53 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         textView = findViewById(R.id.textView);
         loadButton = findViewById(R.id.btn_load);
+        searchInput = findViewById(R.id.search_input);
+        searchResult = findViewById(R.id.search_result);
+        searchClear = findViewById(R.id.search_clear);
+        postList = findViewById(R.id.recyclerView);
+        postList.setLayoutManager(new LinearLayoutManager(this));
+        findViewById(R.id.open_gallery).setOnClickListener(view -> {
+            ArrayList<String> paths = new ArrayList<>();
+            for (PostItem post : PostOrder.sort(allPosts, newestFirst)) {
+                if (post.imagePath != null && new File(post.imagePath).isFile()) paths.add(post.imagePath);
+            }
+            Intent intent = new Intent(this, GalleryActivity.class);
+            intent.putStringArrayListExtra("image_paths", paths);
+            startActivity(intent);
+        });
+        searchClear.setOnClickListener(view -> {
+            searchInput.setText("");
+            hideSearchKeyboard();
+        });
+        searchInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence text, int start, int count, int after) { }
+
+            @Override
+            public void onTextChanged(CharSequence text, int start, int before, int count) {
+                applySearch();
+            }
+
+            @Override
+            public void afterTextChanged(Editable text) { }
+        });
+        searchInput.setOnEditorActionListener((view, action, event) -> {
+            if (action == EditorInfo.IME_ACTION_SEARCH) {
+                hideSearchKeyboard();
+                return true;
+            }
+            return false;
+        });
+        RadioGroup sortOrder = findViewById(R.id.sort_order);
+        newestFirst = getPreferences(MODE_PRIVATE).getBoolean("newest_first", true);
+        sortOrder.check(newestFirst ? R.id.sort_newest : R.id.sort_oldest);
+        sortOrder.setOnCheckedChangeListener((group, checkedId) -> {
+            newestFirst = checkedId == R.id.sort_newest;
+            getPreferences(MODE_PRIVATE).edit().putBoolean("newest_first", newestFirst).apply();
+            hideSearchKeyboard();
+            applySearch();
+        });
+        applySearch();
         serverSwitch = findViewById(R.id.server_switch);
         serverSwitch.setOnCheckedChangeListener((button, cloud) -> {
             if (taskDownload != null && taskDownload.getStatus() == AsyncTask.Status.RUNNING) {
@@ -75,9 +135,34 @@ public class MainActivity extends AppCompatActivity {
             }
             site_url = cloud ? CLOUD_URL : LOCAL_URL;
             serverSwitch.setText(cloud ? "클라우드 서버" : "로컬 서버 (USB 연결)");
-            ((RecyclerView) findViewById(R.id.recyclerView)).setAdapter(null);
+            allPosts.clear();
+            postsLoaded = false;
+            searchInput.setText("");
+            applySearch();
             textView.setText("동기화 버튼을 눌러 주세요.");
         });
+    }
+
+    private void hideSearchKeyboard() {
+        InputMethodManager keyboard = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (keyboard != null) keyboard.hideSoftInputFromWindow(searchInput.getWindowToken(), 0);
+        searchInput.clearFocus();
+    }
+
+    private void applySearch() {
+        String query = searchInput.getText().toString().trim();
+        List<PostItem> visiblePosts = PostOrder.sort(PostSearch.filter(allPosts, query), newestFirst);
+        postList.setAdapter(new ImageAdapter(visiblePosts));
+        searchClear.setEnabled(searchInput.length() > 0);
+        if (!postsLoaded) {
+            searchResult.setText("동기화한 게시물에서 검색합니다.");
+        } else if (query.isEmpty()) {
+            searchResult.setText("전체 " + allPosts.size() + "개");
+        } else if (visiblePosts.isEmpty()) {
+            searchResult.setText("검색 결과가 없습니다. 다른 검색어를 입력해 주세요.");
+        } else {
+            searchResult.setText("검색 결과 " + visiblePosts.size() + "개 / 전체 " + allPosts.size() + "개");
+        }
     }
 
     public void onClickDownload(View v) {
@@ -129,8 +214,9 @@ public class MainActivity extends AppCompatActivity {
         Toast.makeText(getApplicationContext(), "Upload", Toast.LENGTH_LONG).show();
     }
 
-    private class CloadImage extends AsyncTask<String, Integer, List<Bitmap>> {
+    private class CloadImage extends AsyncTask<String, Integer, List<PostItem>> {
         private String errorMessage;
+        private int unavailableImages;
 
         @Override
         protected void onPreExecute() {
@@ -139,68 +225,61 @@ public class MainActivity extends AppCompatActivity {
         }
 
         @Override
-        protected List<Bitmap> doInBackground(String... urls) {
-            List<Bitmap> bitmapList = new ArrayList<>();
+        protected List<PostItem> doInBackground(String... urls) {
+            List<PostItem> posts = new ArrayList<>();
             HttpURLConnection conn = null;
             try {
-                URL urlAPI = new URL(urls[0]);
-                conn = (HttpURLConnection) urlAPI.openConnection();
+                conn = (HttpURLConnection) new URL(urls[0]).openConnection();
                 conn.setRequestMethod("GET");
                 conn.setConnectTimeout(5000);
                 conn.setReadTimeout(5000);
                 int responseCode = conn.getResponseCode();
-                if (responseCode != HttpURLConnection.HTTP_OK) {
-                    throw new IOException("서버 응답: " + responseCode);
-                }
+                if (responseCode != HttpURLConnection.HTTP_OK) throw new IOException("서버 응답: " + responseCode);
                 StringBuilder result = new StringBuilder();
                 try (BufferedReader reader = new BufferedReader(
                         new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                     String line;
-                    while ((line = reader.readLine()) != null) {
-                        result.append(line);
-                    }
+                    while ((line = reader.readLine()) != null) result.append(line);
                 }
                 JSONArray aryJson = new JSONArray(result.toString());
                 for (int i = 0; i < aryJson.length() && !isCancelled(); i++) {
-                    JSONObject post_json = aryJson.getJSONObject(i);
-                    String imageUrl = post_json.optString("image", "");
-                    if (!imageUrl.isEmpty()) {
-                        HttpURLConnection imageConnection = (HttpURLConnection)
-                                new URL(imageUrl).openConnection();
-                        imageConnection.setConnectTimeout(5000);
-                        imageConnection.setReadTimeout(5000);
-                        try (InputStream imgStream = imageConnection.getInputStream()) {
-                            Bitmap imageBitmap = BitmapFactory.decodeStream(imgStream);
-                            if (imageBitmap != null) {
-                                bitmapList.add(imageBitmap);
-                            }
-                        } finally {
-                            imageConnection.disconnect();
+                    JSONObject json = aryJson.getJSONObject(i);
+                    String date = json.isNull("published_date") ? json.optString("created_date", "") : json.optString("published_date", "");
+                    PostItem post = new PostItem(json.optString("title", ""), json.optString("text", ""), date, json.optString("image", ""));
+                    if (!post.imageUrl.isEmpty()) {
+                        try {
+                            File photo = PostImages.download(new File(getCacheDir(), "post_images"), new URL(new URL(urls[0]), post.imageUrl).toString());
+                            post.imagePath = photo.getAbsolutePath();
+                            post.thumbnail = PostImages.decode(post.imagePath, 800);
+                        } catch (Exception error) {
+                            unavailableImages++;
                         }
                     }
+                    posts.add(post);
                 }
             } catch (Exception error) {
                 errorMessage = "동기화 실패: " + error.getMessage();
             } finally {
-                if (conn != null) {
-                    conn.disconnect();
-                }
+                if (conn != null) conn.disconnect();
             }
-            return bitmapList;
+            return posts;
         }
 
         @Override
-        protected void onPostExecute(List<Bitmap> images) {
+        protected void onPostExecute(List<PostItem> posts) {
+            if (taskDownload != this || isFinishing() || isDestroyed()) return;
             loadButton.setEnabled(true);
             if (errorMessage != null) {
                 textView.setText(errorMessage);
-            } else {
-                textView.setText(images.isEmpty() ? "불러올 이미지가 없습니다." : "이미지 로드 성공!");
-                RecyclerView recyclerView = findViewById(R.id.recyclerView);
-                ImageAdapter adapter = new ImageAdapter(images);
-                recyclerView.setLayoutManager(new LinearLayoutManager(MainActivity.this));
-                recyclerView.setAdapter(adapter);
+                return;
             }
+            String status = posts.isEmpty() ? "불러올 게시물이 없습니다." : "이미지 로드 성공! 게시물을 눌러 자세히 보세요.";
+            if (unavailableImages > 0) status += "\n사진 " + unavailableImages + "개를 불러오지 못했습니다.";
+            textView.setText(status);
+            allPosts.clear();
+            allPosts.addAll(posts);
+            postsLoaded = true;
+            applySearch();
         }
     }
 

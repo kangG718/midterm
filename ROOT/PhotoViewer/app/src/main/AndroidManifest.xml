@@ -14,6 +14,8 @@
         android:supportsRtl="true"
         android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.PhotoViewer">
+        <activity android:name=".GalleryActivity" android:exported="false" />
+        <activity android:name=".PostDetailActivity" android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
