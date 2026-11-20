@@ -35,3 +35,4 @@ local.properties
 # Word temporary lock files and export archives
 ~$*
 *.zip
+*.docx
