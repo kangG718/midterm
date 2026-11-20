@@ -11,15 +11,14 @@
 
 ## 수행 결과
 
-로컬 서버와 클라우드 서버에서 게시물 업로드와 동기화를 확인했습니다. 항목별 구현 내용과 동작 화면은 수행 결과 보고서에 정리했습니다.
+로컬 서버와 클라우드 서버에서 게시물 업로드와 동기화를 확인했습니다.
 
-배포 주소: https://garamkang.pythonanywhere.com/
+배포 주소와 계정 정보는 저장소에 게시하지 않습니다. 서버의 `DJANGO_ALLOWED_HOSTS`, `DJANGO_PROJECT_PATH`, Android의 비공개 `local.properties`에 각자 설정합니다.
 
 ## 폴더 구조
 
 ```text
 ROOT/
 ├── PhotoBlogServer/     # Django 서버
-├── PhotoViewer/         # Android 앱 (Java)
-└── 모바일웹서비스 프로젝트_공통평가 01_수행 결과 보고서.docx
+└── PhotoViewer/         # Android 앱 (Java)
 ```
